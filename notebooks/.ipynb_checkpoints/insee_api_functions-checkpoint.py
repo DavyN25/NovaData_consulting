@@ -225,7 +225,7 @@ def fetch_indicator_for_all_departements(dataset_id: str) -> pd.DataFrame:
             print(f"Error for {geo}: {e}")
             continue
 
-        time.sleep(2)  # polite delay to avoid hammering the API
+        time.sleep(1.5)  # polite delay to avoid hammering the API
 
     df = pd.DataFrame(rows)
 

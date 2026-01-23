@@ -1,0 +1,10 @@
+dataset_id,title_fr,description_fr
+DS_BTS_SAL_EQTP_SEX_AGE,Salaires dans le secteur privé selon le sexe et l'âge au niveau communal,"Le champ correspond aux salariés du privé, y compris bénéficiaires de contrats aidés et de contrats de professionnalisation ; hors apprentis, stagiaires, salariés agricoles et salariés des particuliers employeurs.
+Les données sur les salaires au lieu de travail sont ventilées selon le sexe et l'âge, et détaillées par territoire : commune, arrondissement municipal, arrondissement, aire d'attraction des villes 2020, bassin de vie 2022, établissement public de coopération intercommunal, unité urbaine 2020, zone d'emploi 2020, département, région, France hors Mayotte."
+DS_FILOSOFI_AGE_TP_NIVVIE,Niveau de vie médian et taux de pauvreté par tranche d’âge du référent fiscal,"- Niveau de vie médian
+- Taux de pauvreté à 60 % du niveau de vie médian de la France métropolitaine
+
+Le champ couvert est celui de l'ensemble des ménages fiscaux ordinaires dont le revenu disponible est positif ou nul.
+Les résultats couvrent la France métropolitaine, la Martinique et La Réunion.
+
+Les données sont disponibles aux échelons géographiques suivants : France métropolitaine, région, département, arrondissement, établissement public de coopération intercommunale (EPCI), établissement public territorial (EPT), collectivité territoriale à compétences départementales (CTCD), commune, arrondissement municipal, aire d’attraction des villes 2020, bassin de vie 2022, unité urbaine 2020, zone d’emploi 2020."

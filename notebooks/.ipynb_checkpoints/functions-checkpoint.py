@@ -6,7 +6,10 @@ import seaborn as sns
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
+)
 
 import re
 
@@ -238,7 +241,7 @@ def eda_uci_dataset(df, target_col='y'):
     plt.show()
     
 
-
+"""
 
 
 def engineer_features_uci(df, target_col='y'):
@@ -286,6 +289,7 @@ def engineer_features_uci(df, target_col='y'):
  
 
     return X_train, X_test, y_train, y_test
+"""
 
 
 def classification_diagnostic_plot(model, X, y, title="Classification Diagnostics"):
