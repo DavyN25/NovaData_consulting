@@ -6,10 +6,7 @@ import seaborn as sns
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
-)
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
 
 import re
 
@@ -35,41 +32,205 @@ def explore_dataset(df: pd.DataFrame, name: str = "Dataset") -> None:
 
 
 
-def clean_uci_dataset(df: pd.DataFrame) -> pd.DataFrame:
+def rename_uci_columns(df):
     """
-    Clean the UCI Bank Marketing dataset.
-
-    Steps:
-    - Replace 'unknown' with NaN in categorical columns
-    - Convert target column 'y' to binary (yes=1, no=0)
-    - Standardise string columns to lowercase (only if safe)
+    Renames the original UCI Bank Marketing dataset columns to clearer, 
+    more descriptive names that are easier to understand and use in analysis.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Raw UCI dataset
+    df : pandas.DataFrame
+        The raw UCI dataset.
 
     Returns
     -------
-    pd.DataFrame
-        Cleaned dataset
+    pandas.DataFrame
+        A dataframe with renamed columns.
     """
-    df_clean = df.copy()
 
-    # Replace 'unknown' with NaN in object columns
-    obj_cols = df_clean.select_dtypes(include='object').columns
-    df_clean[obj_cols] = df_clean[obj_cols].replace('unknown', np.nan)
+    rename_dict = {
+        'age': 'age',
+        'job': 'job_type',
+        'marital': 'marital_status',
+        'education': 'education_level',
+        'default': 'credit_default',
+        'balance': 'account_balance',
+        'housing': 'housing_loan',
+        'loan': 'personal_loan',
+        'contact': 'contact_type',
+        'day': 'contact_day',
+        'month': 'contact_month',
+        'duration': 'call_duration_sec',
+        'campaign': 'num_contacts_current_campaign',
+        'pdays': 'days_since_last_contact',
+        'previous': 'num_previous_contacts',
+        'poutcome': 'previous_outcome',
+        'y': 'subscribed'
+    }
 
-    # Convert target column 'y' to binary
-    df_clean['y'] = df_clean['y'].map({'yes': 1, 'no': 0})
+    return df.rename(columns=rename_dict)
 
-    # Standardise string columns to lowercase safely
-    for col in obj_cols:
-        if df_clean[col].dropna().apply(lambda x: isinstance(x, str)).all():
-            df_clean[col] = df_clean[col].str.lower()
 
-    print("Cleaning complete. Shape:", df_clean.shape)
-    return df_clean
+
+def create_age_groups(df, age_col='age'):
+    """
+    Creates categorical age groups (bins) from a numerical age column.
+    Useful for segmentation, visualization, and behavioral analysis.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The dataset containing the age column.
+    age_col : str
+        The name of the numerical age column.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe with a new column 'age_group_bin'.
+    """
+
+    df['age_group_bin'] = pd.cut(
+        df[age_col],
+        bins=[0, 25, 35, 45, 55, 65, 120],
+        labels=['18-25', '26-35', '36-45', '46-55', '56-65', '65+']
+    )
+
+    return df
+
+def create_campaign_groups(df, campaign_col='num_contacts_current_campaign'):
+    """
+    Groups the number of contacts made during the current campaign into 
+    meaningful categories. Helps analyze diminishing returns and customer fatigue.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The dataset containing the campaign column.
+    campaign_col : str
+        The name of the numerical campaign column.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe with a new column 'campaign_group_bin'.
+    """
+
+    df['campaign_group'] = pd.cut(
+        df[campaign_col],
+        bins=[0, 1, 3, 5, 10, 100],
+        labels=['1 contact', '2–3 contacts', '4–5 contacts', '6–10 contacts', '10+ contacts']
+    )
+
+    return df
+
+
+def create_contact_missing_flag(df, contact_col='contact_type'):
+    """
+    Creates a binary flag indicating whether the contact_type field 
+    was missing in the original dataset.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The dataset containing the contact column.
+    contact_col : str
+        The name of the contact column.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe with a new column 'contact_missing_flag'.
+    """
+
+    df['contact_missing_flag'] = df[contact_col].isna().astype(int)
+    return df
+
+
+
+
+def clean_uci_dataset(df):
+    """
+    Applies all cleaning steps to the UCI dataset:
+    - Renames columns
+    - Creates age groups
+    - Creates campaign groups
+    - Creates missing contact flag
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The raw UCI dataset.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A fully cleaned and enriched dataset ready for EDA and modeling.
+    """
+
+    df = rename_uci_columns(df)
+    df = create_age_groups(df)
+    df = create_campaign_groups(df)
+    df = create_contact_missing_flag(df)
+
+    return df
+
+
+
+def detect_outliers_iqr(df, columns, method="flag"):
+    """
+    Detects outliers in numerical columns using the IQR (Interquartile Range) method.
+    Can either flag, remove, or cap outliers depending on the selected method.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The dataset containing numerical columns.
+    columns : list
+        List of numerical column names to check for outliers.
+    method : str, optional
+        How to handle outliers:
+        - "flag": create a binary flag column for each variable
+        - "remove": drop rows containing outliers
+        - "cap": cap outliers to the IQR boundaries
+        Default is "flag".
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe with outliers flagged, removed, or capped.
+    """
+
+    df = df.copy()
+
+    for col in columns:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+
+        if method == "flag":
+            df[f"{col}_outlier_flag"] = (
+                (df[col] < lower_bound) | (df[col] > upper_bound)
+            ).astype(int)
+
+        elif method == "remove":
+            df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+
+        elif method == "cap":
+            df[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
+
+        else:
+            raise ValueError("method must be 'flag', 'remove', or 'cap'")
+
+    return df
+
+
+
+
+
 
 
 def handle_missing_values_uci(df: pd.DataFrame) -> pd.DataFrame:
@@ -104,51 +265,6 @@ def handle_missing_values_uci(df: pd.DataFrame) -> pd.DataFrame:
     print("Missing-value handling complete. Shape:", df_mv.shape)
     return df_mv
   
-
-def clean_loan_dataset(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Clean the loan dataset.
-
-    Steps:
-    - Standardise column names to snake_case
-    - Standardise string columns (lowercase, strip)
-    - Ensure loan_id is string
-    - Rename target column 'default' to 'loan_default'
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-
-    Returns
-    -------
-    pd.DataFrame
-        Cleaned loan dataset
-    """
-    df_clean = df.copy()
-
-    # Convert column names to snake_case
-    def camel_to_snake(name):
-        return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
-
-    df_clean.columns = [camel_to_snake(col) for col in df_clean.columns]
-
-    # Ensure loan_id is string
-    if 'loan_id' in df_clean.columns:
-        df_clean['loan_id'] = df_clean['loan_id'].astype(str)
-
-    # Standardise string columns
-    str_cols = df_clean.select_dtypes(include='object').columns
-    for col in str_cols:
-        df_clean[col] = df_clean[col].str.strip().str.lower()
-
-    # Rename target column
-    if 'default' in df_clean.columns:
-        df_clean = df_clean.rename(columns={'default': 'loan_default'})
-
-    print("Loan dataset cleaned. Shape:", df_clean.shape)
-    return df_clean
-
-
 
 
 def eda_uci_dataset(df, target_col='y'):
@@ -241,27 +357,73 @@ def eda_uci_dataset(df, target_col='y'):
     plt.show()
     
 
-"""
 
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+import pandas as pd
 
-def engineer_features_uci(df, target_col='y'):
+def preprocess_data(X_train, X_test, categorical_cols, numerical_cols):
     """
-    Feature engineering pipeline for the UCI bank marketing dataset.
+    Preprocesses training and test data:
+    - One-hot encodes categorical columns
+    - Scales numerical columns
+    - Concatenates both into final model-ready matrices
+    - Returns fitted encoder and scaler for future use
+    """
 
-    What:
-        - Encode categorical variables
-        - Scale numeric variables
-        - Create optional interaction features
-        - Split into train/test sets
+    # ----- 1. One-hot encoding -----
+    ohe = OneHotEncoder(sparse_output=False, drop='first')
+    ohe.fit(X_train[categorical_cols])
 
-    Why:
-        - To prepare the dataset for machine learning models
-        - To ensure consistent preprocessing
-        - To support reproducibility and modularity
+    X_train_cat = ohe.transform(X_train[categorical_cols])
+    X_test_cat = ohe.transform(X_test[categorical_cols])
+
+    X_train_cat_df = pd.DataFrame(X_train_cat, 
+                                  columns=ohe.get_feature_names_out(),
+                                  index=X_train.index)
+
+    X_test_cat_df = pd.DataFrame(X_test_cat, 
+                                 columns=ohe.get_feature_names_out(),
+                                 index=X_test.index)
+
+    # ----- 2. Scaling numerical columns -----
+    scaler = StandardScaler()
+    scaler.fit(X_train[numerical_cols])
+
+    X_train_num = scaler.transform(X_train[numerical_cols])
+    X_test_num = scaler.transform(X_test[numerical_cols])
+
+    X_train_num_df = pd.DataFrame(X_train_num,
+                                  columns=scaler.get_feature_names_out(),
+                                  index=X_train.index)
+
+    X_test_num_df = pd.DataFrame(X_test_num,
+                                 columns=scaler.get_feature_names_out(),
+                                 index=X_test.index)
+
+    # ----- 3. Concatenate -----
+    X_train_full = pd.concat([X_train_num_df, X_train_cat_df], axis=1)
+    X_test_full = pd.concat([X_test_num_df, X_test_cat_df], axis=1)
+
+    return X_train_full, X_test_full, ohe, scaler
+
+
+
+def engineer_features_uci(df, target_col='subscribed'):
+    """
+    Full feature engineering pipeline for the UCI bank marketing dataset.
+
+    Steps:
+        - Encode target variable (yes/no → 1/0)
+        - Identify categorical and numeric columns
+        - One-hot encode categorical variables
+        - Scale numeric variables (fit on train only)
+        - Train/test split with stratification
 
     Returns:
         X_train, X_test, y_train, y_test
     """
+
+    df = df.copy()
 
     # 1. Encode target variable
     df[target_col] = df[target_col].map({'no': 0, 'yes': 1})
@@ -270,26 +432,28 @@ def engineer_features_uci(df, target_col='y'):
     X = df.drop(columns=[target_col])
     y = df[target_col]
 
-    # 3. Identify column types
-    categorical_cols = X.select_dtypes(include='object').columns
-    numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns
+    # 3. Identify column types (AFTER feature engineering)
+    categorical_cols = X.select_dtypes(include='object').columns.tolist()
+    numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
 
     # 4. One-hot encode categorical variables
     X_encoded = pd.get_dummies(X, columns=categorical_cols, drop_first=True)
 
-    # 7. Train/test split
+    # 5. Train/test split (AFTER encoding)
     X_train, X_test, y_train, y_test = train_test_split(
         X_encoded, y, test_size=0.2, random_state=42, stratify=y
     )
-    # 5. Scale numeric variables
+
+    # 6. Scale numeric variables (fit on train only)
     scaler = StandardScaler()
-    scaler.fit(X_train)
-    X_encoded[numeric_cols] = scaler.transform(X_encoded[numeric_cols])
+    X_train[numeric_cols] = scaler.fit_transform(X_train[numeric_cols])
+    X_test[numeric_cols] = scaler.transform(X_test[numeric_cols])
+
+    return X_train, X_test, y_train, y_test
 
  
 
     return X_train, X_test, y_train, y_test
-"""
 
 
 def classification_diagnostic_plot(model, X, y, title="Classification Diagnostics"):
@@ -340,3 +504,71 @@ def classification_diagnostic_plot(model, X, y, title="Classification Diagnostic
     plt.suptitle(title)
     plt.tight_layout()
     plt.show()
+
+
+
+
+def evaluate_model(model, X_test, y_test, threshold=0.5, title="Model Evaluation"):
+    y_proba = model.predict_proba(X_test)[:, 1]
+    y_pred = (y_proba >= threshold).astype(int)
+
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred)
+    rec = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+    auc = roc_auc_score(y_test, y_proba)
+
+    print(f"\n📊 {title} (Threshold = {threshold}):")
+    print("----------------------------------------")
+    print(f"Accuracy      : {acc:.2f}")
+    print(f"Precision     : {prec:.2f}")
+    print(f"Recall        : {rec:.2f}")
+    print(f"F1 Score      : {f1:.2f}")
+    print(f"AUC (ROC)     : {auc:.2f}")
+
+    ConfusionMatrixDisplay.from_predictions(y_test, y_pred, cmap="Greens")
+
+
+
+
+
+
+def clean_loan_dataset(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Clean the loan dataset.
+
+    Steps:
+    - Standardise column names to snake_case
+    - Standardise string columns (lowercase, strip)
+    - Ensure loan_id is string
+    - Rename target column 'default' to 'loan_default'
+    """
+
+    df_clean = df.copy()
+
+    # Convert column names to snake_case
+    def camel_to_snake(name):
+        return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+
+    df_clean.columns = [camel_to_snake(col) for col in df_clean.columns]
+
+    # Ensure loan_id is string
+    if 'loan_id' in df_clean.columns:
+        df_clean['loan_id'] = df_clean['loan_id'].astype(str)
+
+    # Standardise string columns (exclude loan_id)
+    str_cols = [col for col in df_clean.select_dtypes(include='object').columns 
+                if col != 'loan_id']
+
+    for col in str_cols:
+        df_clean[col] = df_clean[col].str.strip().str.lower()
+
+    # Rename target column
+    if 'default' in df_clean.columns:
+        df_clean = df_clean.rename(columns={'default': 'loan_default'})
+    else:
+        raise ValueError("Target column 'default' not found in dataset.")
+
+    print("Loan dataset cleaned. Shape:", df_clean.shape)
+    return df_clean
+
