@@ -526,8 +526,7 @@ def evaluate_model(model, X_test, y_test, threshold=0.5, title="Model Evaluation
     print(f"F1 Score      : {f1:.2f}")
     print(f"AUC (ROC)     : {auc:.2f}")
 
-    ConfusionMatrixDisplay.from_predictions(y_test, y_pred, cmap="Greens")
-
+    ConfusionMatrixDisplay.from_predictions(y_test, y_pred, cmap=["#3A7BD5", "#00d2ff"])
 
 
 
@@ -539,6 +538,7 @@ def clean_loan_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     Steps:
     - Standardise column names to snake_case
+    - Fix over-split column names (loan_i_d → loan_id, d_t_i_ratio → dti_ratio)
     - Standardise string columns (lowercase, strip)
     - Ensure loan_id is string
     - Rename target column 'default' to 'loan_default'
@@ -552,13 +552,22 @@ def clean_loan_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     df_clean.columns = [camel_to_snake(col) for col in df_clean.columns]
 
+    # Fix over-split column names
+    rename_map = {
+        'loan_i_d': 'loan_id',
+        'd_t_i_ratio': 'dti_ratio'
+    }
+    df_clean = df_clean.rename(columns=rename_map)
+
     # Ensure loan_id is string
     if 'loan_id' in df_clean.columns:
         df_clean['loan_id'] = df_clean['loan_id'].astype(str)
 
     # Standardise string columns (exclude loan_id)
-    str_cols = [col for col in df_clean.select_dtypes(include='object').columns 
-                if col != 'loan_id']
+    str_cols = [
+        col for col in df_clean.select_dtypes(include='object').columns
+        if col != 'loan_id'
+    ]
 
     for col in str_cols:
         df_clean[col] = df_clean[col].str.strip().str.lower()
@@ -571,4 +580,3 @@ def clean_loan_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     print("Loan dataset cleaned. Shape:", df_clean.shape)
     return df_clean
-
